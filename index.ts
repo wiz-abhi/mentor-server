@@ -4,7 +4,7 @@ import { parse } from 'url'
 import { query } from './db-ws'
 
 // Store active connections with sessionId and userId
-const connections = new Map<string, {ws: WebSocket, sessionId: string}>()
+const connections = new Map<string, {ws: WebSocket, sessionId: string, userId: string}>()
 
 // Create HTTP server
 const server = createServer()
@@ -18,14 +18,15 @@ wss.on('connection', (ws, req) => {
   const sessionId = queryParams.sessionId as string
   const userId = queryParams.userId as string
 
+
   if (!sessionId || !userId) {
     ws.close(1008, 'Missing sessionId or userId')
     return
   }
 
   // Store the connection with both IDs for better filtering
-  const connectionId = `${userId}-${sessionId}`
-  connections.set(connectionId, {ws, sessionId})
+  const connectionId = `${userId}-${sessionId}`)
+  connections.set(connectionId, {ws, sessionId, userId})
   console.log(`New connection: ${connectionId}`)
 
   // Notify other participants in the session
