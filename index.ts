@@ -4,23 +4,37 @@ import { parse } from 'url'
 import { query } from './db-ws'
 
 // Store active connections with sessionId and userId
-const connections = new Map<string, {ws: WebSocket, sessionId: string, userId: string}>()
+const connections = new Map<string, { ws: WebSocket, sessionId: string, userId: string }>()
 
 // Create HTTP server
-const server = createServer()
-server.on('request', (req, res) => {
-  if (req.method === 'GET' && req.url === '/health') {
+const server = createServer((req, res) => {
+  if (!req.url) {
+    res.writeHead(400)
+    res.end()
+    return
+  }
+
+  const parsedUrl = parse(req.url, true)
+  
+  // Health check endpoint
+  if (req.method === 'GET' && parsedUrl.pathname === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify({ status: 'ok' }))
+    return
   }
+  
+  // Other endpoints can return a simple 404
+  res.writeHead(404, { 'Content-Type': 'text/plain' })
+  res.end('Not Found')
 })
 
-// Create WebSocket server
+// Create WebSocket server attached to HTTP server
 const wss = new WebSocketServer({ server })
 
 // Handle WebSocket connections
 wss.on('connection', (ws, req) => {
-  const { query: queryParams } = parse(req.url || '', true)
+  const parsedUrl = parse(req.url || '', true)
+  const queryParams = parsedUrl.query
   const sessionId = queryParams.sessionId as string
   const userId = queryParams.userId as string
 
@@ -29,9 +43,9 @@ wss.on('connection', (ws, req) => {
     return
   }
 
-  // Store the connection with both IDs for better filtering
+  // Use a composite key for the connection
   const connectionId = `${userId}-${sessionId}`
-  connections.set(connectionId, {ws, sessionId, userId})
+  connections.set(connectionId, { ws, sessionId, userId })
   console.log(`New connection: ${connectionId}`)
 
   // Notify other participants in the session
@@ -40,16 +54,13 @@ wss.on('connection', (ws, req) => {
     userId
   })
 
-  // Handle messages
+  // Handle incoming messages
   ws.on('message', async (data) => {
     try {
       const message = JSON.parse(data.toString())
-      
-      // Forward the message to other participants in the session
-      if (message.type === 'offer' || message.type === 'answer' || message.type === 'ice-candidate') {
+      if (['offer', 'answer', 'ice-candidate'].includes(message.type)) {
         broadcastToSession(sessionId, userId, message)
       } else if (message.type === 'chat') {
-        // Save chat message to database
         await saveChatMessage(sessionId, userId, message.message)
         broadcastToSession(sessionId, userId, message)
       }
@@ -77,36 +88,29 @@ wss.on('connection', (ws, req) => {
 
 // Helper function to broadcast to all participants in a session except the sender
 function broadcastToSession(sessionId: string, senderId: string, message: any) {
-  // Get all participants in the session except sender
-  const participants = Array.from(connections.entries())
-    .filter(([_, connInfo]) => connInfo.sessionId === sessionId)
-    .filter(([connId]) => !connId.startsWith(senderId))
+  // Get all connections in the same session where the userId is not the senderId
+  const participants = Array.from(connections.values())
+    .filter(conn => conn.sessionId === sessionId && conn.userId !== senderId)
 
+  // If no other participants, optionally notify the sender
   if (participants.length === 0) {
-    // If no other participants, notify the sender
-    const senderConn = Array.from(connections.entries())
-      .find(([connId]) => connId.startsWith(senderId))
-    
-    if (senderConn) {
-      const [_, { ws }] = senderConn
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          type: 'no-participant'
-        }))
-      }
+    const senderConn = Array.from(connections.values())
+      .find(conn => conn.userId === senderId)
+    if (senderConn && senderConn.ws.readyState === WebSocket.OPEN) {
+      senderConn.ws.send(JSON.stringify({ type: 'no-participant' }))
     }
     return
   }
 
-  // Send message to all other participants
-  participants.forEach(([_, { ws }]) => {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(message))
+  // Send the message to each participant
+  participants.forEach(conn => {
+    if (conn.ws.readyState === WebSocket.OPEN) {
+      conn.ws.send(JSON.stringify(message))
     }
   })
 }
 
-// Helper function to save chat messages
+// Helper function to save chat messages to the database
 async function saveChatMessage(sessionId: string, userId: string, message: any) {
   try {
     const result = await query(
@@ -126,8 +130,8 @@ async function saveChatMessage(sessionId: string, userId: string, message: any) 
   }
 }
 
-// Start the server
-const PORT = parseInt(process.env.PORT || '3001')
+// Start the server using the PORT environment variable (or default to 3001)
+const PORT = parseInt(process.env.PORT || '3001', 10)
 server.listen(PORT, () => {
-  console.log(`WebSocket server running on port ${PORT}`)
+  console.log(`HTTP + WebSocket server running on port ${PORT}`)
 })
