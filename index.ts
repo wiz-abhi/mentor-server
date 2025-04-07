@@ -8,6 +8,13 @@ const connections = new Map<string, {ws: WebSocket, sessionId: string, userId: s
 
 // Create HTTP server
 const server = createServer()
+server.on('request', (req, res) => {
+  if (req.method === 'GET' && req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ status: 'ok' }))
+  }
+})
+
 
 // Create WebSocket server
 const wss = new WebSocketServer({ server })
@@ -123,7 +130,7 @@ async function saveChatMessage(sessionId: string, userId: string, message: any) 
 }
 
 // Start the server
-const PORT = process.env.WS_PORT || 3001
+const PORT = parseInt(process.env.PORT || '3001')
 server.listen(PORT, () => {
   console.log(`WebSocket server running on port ${PORT}`)
 })
