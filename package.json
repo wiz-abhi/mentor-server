@@ -4,8 +4,8 @@
   "description": "WebSocket server for video conferencing and chat",
   "main": "websocket-server.ts",
   "scripts": {
-    "start": "ts-node websocket-server.ts",
-    "dev": "nodemon websocket-server.ts"
+    "start": "ts-node index.ts",
+    "dev": "nodemon index.ts"
   },
   "dependencies": {
     "@vercel/postgres": "^0.7.0",
