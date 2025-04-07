@@ -15,7 +15,6 @@ server.on('request', (req, res) => {
   }
 })
 
-
 // Create WebSocket server
 const wss = new WebSocketServer({ server })
 
@@ -25,14 +24,13 @@ wss.on('connection', (ws, req) => {
   const sessionId = queryParams.sessionId as string
   const userId = queryParams.userId as string
 
-
   if (!sessionId || !userId) {
     ws.close(1008, 'Missing sessionId or userId')
     return
   }
 
   // Store the connection with both IDs for better filtering
-  const connectionId = `${userId}-${sessionId}`)
+  const connectionId = `${userId}-${sessionId}`
   connections.set(connectionId, {ws, sessionId, userId})
   console.log(`New connection: ${connectionId}`)
 
@@ -118,7 +116,6 @@ async function saveChatMessage(sessionId: string, userId: string, message: any) 
 
     const currentNotes = result.rows[0]?.notes ? JSON.parse(result.rows[0].notes) : []
     const updatedNotes = [...currentNotes, message]
-    console.log(updatedNotes)
 
     await query(
       `UPDATE mentorship_sessions SET notes = $1 WHERE id = $2`,
