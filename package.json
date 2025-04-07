@@ -1,0 +1,22 @@
+{
+  "name": "mentorship-platform-websocket-server",
+  "version": "1.0.0",
+  "description": "WebSocket server for video conferencing and chat",
+  "main": "websocket-server.ts",
+  "scripts": {
+    "start": "ts-node websocket-server.ts",
+    "dev": "nodemon websocket-server.ts"
+  },
+  "dependencies": {
+    "@vercel/postgres": "^0.7.0",
+    "dotenv": "^16.4.5",
+    "mentorship-platform-websocket-server": "file:",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.10",
+    "nodemon": "^3.1.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
